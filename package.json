@@ -1,0 +1,13 @@
+{
+  "dependencies": {
+    "@types/node": "^11.9.4",
+    "lodash": "^4.17.11",
+    "ramda": "^0.26.1",
+    "rxjs": "^6.4.0",
+    "xmlhttprequest": "^1.8.0"
+  },
+  "devDependencies": {
+    "@types/lodash": "^4.14.134",
+    "@types/ramda": "^0.26.9"
+  }
+}
