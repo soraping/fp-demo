@@ -1,0 +1,17 @@
+{
+  "compilerOptions": {
+    "outDir": ".",
+    "sourceMap": false,
+    "strict": true,
+    "module": "esnext",
+    "moduleResolution": "node",
+    "target": "es6",
+    "allowSyntheticDefaultImports": true,
+    "isolatedModules": false,
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "importHelpers": true,
+    "lib": ["dom", "es2015", "es2015.promise"]
+  },
+  "exclude": ["node_modules"]
+}
