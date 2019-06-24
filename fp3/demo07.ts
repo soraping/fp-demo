@@ -39,15 +39,32 @@ const append = R.curry((elementId, info) => {
   return info;
 });
 
+const createNewStudent = (id: string) => {
+  return {
+    name: "wanger",
+    ssn: id
+  };
+};
+
 const trim = (str: string) => str.replace(/(^\s*)|(\s*$)/g, "");
 
-const normalize = (str: string) => str.replace(/\-/g, "");
+const alt = R.curry((func1, func2, val) => func1(val) || func2(val));
+
+const seq = function(...funcArgs: Function[]) {
+  return function(val: any) {
+    funcArgs.forEach(function(fn) {
+      fn(val);
+    });
+  };
+};
+
+const sayX = (x: any) => console.log(`X IS ${x}`);
 
 const showStudent = R.compose(
-  append("#student-info"),
+  seq(append("#student-info"), R.tap(sayX)),
   csv,
-  findStudent,
+  alt(findStudent, createNewStudent),
   trim
 );
 
-console.log(showStudent(" 4444-444-44 "));
+console.log(showStudent(" 4444-444-33 "));
