@@ -1,13 +1,17 @@
 import * as R from "ramda";
 
-interface Wrapper {
-  fmap(f: Function): Wrapper;
+export interface Wrapper<T> {
+  fmap(f: Function): Wrapper<T>;
 }
 
-class Wrapper {
-  constructor(private value: any) {}
+interface IWrap {
+  <T>(val: T): Wrapper<T>;
+}
 
-  map(f: Function) {
+export class Wrapper<T> {
+  constructor(private value: T) {}
+
+  map(f: IWrap) {
     return f(this.value);
   }
 
@@ -20,5 +24,9 @@ Wrapper.prototype.fmap = function(f: Function) {
   return wrap(f(this.value));
 };
 
+function wrapper<T>(val: T): Wrapper<T> {
+  return new Wrapper(val);
+}
+
 // 容器方法
-export const wrap = (val: any) => new Wrapper(val);
+export const wrap: IWrap = wrapper;

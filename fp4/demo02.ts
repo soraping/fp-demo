@@ -1,5 +1,5 @@
 import * as R from "ramda";
-import { wrap } from "./wrap";
+import { wrap, Wrapper } from "./wrap";
 
 interface IStudent {
   ssn: string;
@@ -26,18 +26,23 @@ const find = (db: IStudent[], id: string) => {
 };
 
 // 包裹对象获取逻辑，以避免找不到对象所造成的问题
-const findStudent = R.curry((db, ssn) => wrap(find(db, ssn)));
+const findStudent = R.curry((db, ssn) => wrap<IStudent>(find(db, ssn)));
 
 // 获取容器中的值
 // console.log(findStudent(DB("student"))("4444-444-44").map(R.identity));
 
-const getName = function(student: IStudent) {
-  return wrap;
+const getName = function(student: Wrapper<IStudent>) {
+  return wrap(student.fmap(R.prop("name")));
 };
 
-const student = R.compose(
+const studentName = R.compose(
+  getName,
   R.tap(sayX),
   findStudent(DB("student"))
 );
 
-console.log(student("4444-444-44"));
+console.log(
+  studentName("4444-444-44")
+    .map(R.identity)
+    .map(R.identity)
+);
