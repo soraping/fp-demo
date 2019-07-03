@@ -2,7 +2,6 @@
   "dependencies": {
     "@types/node": "^11.9.4",
     "lodash": "^4.17.11",
-    "node-xlsx": "^0.15.0",
     "ramda": "^0.26.1",
     "rxjs": "^6.4.0",
     "xmlhttprequest": "^1.8.0"
