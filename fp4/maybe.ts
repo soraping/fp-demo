@@ -15,7 +15,7 @@ export class Maybe {
    * @param a
    */
   static formNullable(a) {
-    return a !== null ? this.just(a) : this.nothing();
+    return a && a !== null ? this.just(a) : this.nothing();
   }
   static of(a) {
     return this.just(a);
@@ -43,12 +43,14 @@ export class Just<T> extends Maybe {
    * @param f
    */
   map(f) {
+    // 链式时，任何一步map映射都会调用Nothing
+    if (!this.value) return Maybe.nothing();
     return Maybe.of(f(this._value));
   }
   /**
    * Monad 提供默认的一元操作，用于从中获取其值
    */
-  getOrElse() {
+  getOrElse(a) {
     return this.value;
   }
   filter(f) {

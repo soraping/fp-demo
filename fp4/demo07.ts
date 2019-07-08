@@ -1,5 +1,5 @@
 import * as R from "ramda";
-import { Maybe, Just } from "./maybe";
+import { Either, Right } from "./either";
 
 interface IAddress {
   country: string;
@@ -41,28 +41,17 @@ const find = (db: IStudent[], id: string) => {
   return R.find(R.propEq("ssn", id))(db);
 };
 
-const safeFindObject = R.curry(function(db, id) {
-  return Maybe.formNullable(find(db, id));
+const salfFindObject = R.curry(function(db, id) {
+  return Either.fromNullable(find(db, id));
 });
 
-const safeFindStudent = safeFindObject(DB("student"));
+const findStudent = salfFindObject(DB("student"));
 
-const safeStudentName = safeFindStudent("4444-444-44").map(R.prop("name"));
+const ID = "4444-444-44";
 
-// console.log(safeStudentName.value);
+const student: Right<IStudent> = findStudent(ID).orElse(() => {
+  console.error(`Student not found with id ${ID}`);
+});
 
-// console.log(safeStudentName.getOrElse("vivi"));
-
-const getCountry = (student: Just<IStudent>) => {
-  return student
-    .map(R.prop("address"))
-    .map(R.prop("country"))
-    .getOrElse("USA");
-};
-
-const country = R.compose(
-  getCountry,
-  safeFindStudent
-);
-
-console.log(country("7788-999-000"));
+// zhangsan
+console.log(student.map(R.prop("name")).value);
