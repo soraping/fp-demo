@@ -1,4 +1,7 @@
 {
+  "scripts": {
+    "demo08": "tsc fp4/demo08.ts --target ES5 && npx browserify fp4/demo08.js > fp4/demo08-b.js"
+  },
   "dependencies": {
     "@types/node": "^11.9.4",
     "lodash": "^4.17.11",
@@ -8,6 +11,7 @@
   },
   "devDependencies": {
     "@types/lodash": "^4.14.134",
-    "@types/ramda": "^0.26.9"
+    "@types/ramda": "^0.26.9",
+    "browserify": "^16.3.0"
   }
 }
