@@ -103,6 +103,10 @@ console.log(wrappedValue.map(R.toUpper));
 
 ```
 
+> `map` 更加广义的概念
+
+`map` 不仅仅是数组的 `map`，它可以映射函数到更多的类型。在函数式 `javascript` 中，`map` 只不过是一个函数，由于引用透明性，只要输入相同，`map` 永远会返回相同的结果。当然，还可以认为 `map` 是可以使用 `lambda` 表达式变换容器内的值的途径。对于数组，就可以通过 `map` 转换值，返回包含新值的新数组。
+
 > `Wrapper` 类型使用 `map` 安全的访问和操作值，在这种情况下，通过映射 `identity` 函数就能在容器中提取值。如此一来，所有对值的操作都必须借助 `Wrapper.map` 伸入容器，从而使值得到一定的保护。
 
 #### `Functor`（函子）定义
@@ -393,7 +397,7 @@ export class Maybe {
    * @param a
    */
   static formNullable(a) {
-    return a !== null ? this.just(a) : this.nothing();
+    return a && a !== null ? this.just(a) : this.nothing();
   }
   static of(a) {
     return this.just(a);
@@ -421,6 +425,8 @@ export class Just<T> extends Maybe {
    * @param f
    */
   map(f) {
+    // 链式时，任何一步map映射都会调用Nothing
+    if (!this.value) return Maybe.nothing();
     return Maybe.of(f(this._value));
   }
   /**
@@ -480,20 +486,38 @@ export class Nothing extends Maybe {
 import * as R from "ramda";
 import { Maybe } from "./maybe";
 
+interface IAddress {
+  country: string;
+  city: string;
+}
+
 interface IStudent {
   ssn: string;
   name: string;
+  address: IAddress;
 }
 
 const DB = (property: string) => {
   return [
     {
       name: "zhangsan",
-      ssn: "4444-444-44"
+      ssn: "4444-444-44",
+      address: {
+        country: "China",
+        city: "nanjing"
+      }
     },
     {
       name: "lisi",
-      ssn: "5555-555-55"
+      ssn: "5555-555-55",
+      address: {
+        country: "Japan",
+        city: "dongjing"
+      }
+    },
+    {
+      name: "lucy",
+      ssn: "7788-999-000"
     }
   ];
 };
@@ -515,12 +539,419 @@ console.log(safeStudentName.value);
 
 const safeStudentName2 = safeFindStudent("77777-444-44").map(R.prop("name"));
 
-// undefined
+// TypeError: Can not extract the value of a Nothing.
 console.log(safeStudentName2.value);
 ```
 
+使用 `Monad` 的另一个好处是，它可以修饰函数签名，以表征其返回值的不确定性，`Maybe.formNullable` 是个非常有用的函数，可用于你处理 `null` 判断。如果有合法值，调用 `safeFindStudent` 会产生一个 Just(Student)，否则返回 `Nothing` ，将 `R.prop map` 到 `Monad` 上的行为跟我们想的一样。此外，它还做了些检测程序错误和 `api` 滥用的工作：也可以用它来当参数的提前条件。如果一个无效的值被传递到 `Maybe.formNullable` ，它会产生 `Nothing` 类型，这样调用 `get()` 来打开容器将会抛出一个异常：
+
+```js
+TypeError: Can not extract the value of a Nothing
+```
+
+使用 `Monad` 应该首先想到将函数 `map` 上去，而不是直接去提取其内容。也可以使用 `getOrElse` 安全地获取其内容，如果是 `Nothing` ，则返回默认值。
+
+```js
+// Nothing 时返回 vivi
+safeStudentName.getOrElse("vivi");
+```
+
+获取 `country` 时的 `null` 判断：
+
+```js
+function getCountry(student: IStudent) {
+  let address = student.address;
+  if (address != null) {
+    return address.country;
+  }
+  return "Country does not exist!";
+}
+```
+
+上面的只有一层，如果有多层的话，`null` 的判断将会无限回调。
+
+```js
+const getCountry = (student: Just<IStudent>) =>
+  student
+    .map(R.prop("address"))
+    .map(R.prop("country"))
+    .getOrElse("USA");
+
+const country = R.compose(
+  getCountry,
+  safeFindStudent
+);
+
+// China
+console.log(country("4444-444-44"));
+
+// Nothing 触发 getOrElse 方法返回默认 USA
+console.log(country("7788-999-000"));
+```
+
+`Maybe` 擅长于集中管理的无效数据的检查，但它没有（双关 `Nothing`）提供关于什么地方除了错的信息。
+
 > 使用 `Either` 从恢复
+
+`Either` 代表的是两个逻辑分离的值 `a` 和 `b` ，它们永远不会同时出现。
+
+- `Left(a)` 包含一个可能的错误消息或抛出的异常对象
+- `Right(b)` 包含一个成功的值
+
+`Either` 通常操作右值，这意味着在容器上映射函数总是在 `Right(b)` 子类型上执行。它类似于 `Maybe` 的 `Just` 分支。
+
+`either.ts` :
+
+```js
+export class Either<T> {
+  constructor(protected _value: T) {}
+  get value() {
+    return this._value;
+  }
+  static left(a) {
+    return new Left(a);
+  }
+  static right(a) {
+    return new Right(a);
+  }
+  static fromNullable(val) {
+    return val && val != null ? this.right(val) : this.left(val);
+  }
+  /**
+   * 创建一个包含值的 Right 实例
+   * @param a
+   */
+  static of(a) {
+    return this.right(a);
+  }
+}
+
+export class Right<T> extends Either<T> {
+  map(f) {
+    return Either.of(f(this.value));
+  }
+  getOrElse(other) {
+    return this.value;
+  }
+  /**
+   * 将给定函数应用于 Left 值上，不对 Right 进行任何操作
+   */
+  orElse() {
+    return this;
+  }
+  /**
+   * 将给定函数应用于 Right 值上并返回其结果，不对 Left 进行操作
+   * @param f
+   */
+  chain(f) {
+    return f(this.value);
+  }
+  /**
+   * 如果 Left ，通过给定值抛出异常；否则忽略异常并返回 Right 中的合法值
+   * @param _ 占位符
+   */
+  getOrElseThrow(_) {
+    return this.value;
+  }
+  /**
+   * 如果为 Right 且给定的断言为真时，返回包含值的 Right 结构；返回空的 Left
+   * @param f
+   */
+  filter(f) {
+    return Either.fromNullable(f(this.value) ? this.value : null);
+  }
+  toString() {
+    return `Either.Right(${this.value})`;
+  }
+}
+
+class Left extends Either<any> {
+  /**
+   * noop
+   * 通过映射函数对 Right 结构中的值进行变换，对 Left 不进行任何操作
+   * @param _ 占位符
+   */
+  map(_) {
+    return this;
+  }
+  get value() {
+    throw new TypeError("Can not extract the value of a Left");
+  }
+  /**
+   * 提取 Right 的值，如果不存在，则返回给定的默认值
+   * @param other
+   */
+  getOrElse(other) {
+    return other;
+  }
+  /**
+   * 将给定函数应用于 Left 值，不对 Right 进行任何操作
+   * @param f
+   */
+  orElse(f) {
+    return f(this._value);
+  }
+  /**
+   * 将给定函数应用于 Right 值并返回其结果，不对 Left 进行任何操作。
+   */
+  chain(f) {
+    return this;
+  }
+  /**
+   * 如果为 Left ，通过给定值抛出异常，否则忽略异常并返回 Right 中的合法值
+   * @param a
+   */
+  getOrElseThrow(a) {
+    throw new Error(a);
+  }
+  /**
+   * 如果为 Right 且给定的断言为真，返回包含值的 Right 结构; 否则返回空的 Left
+   * @param f
+   */
+  filter(f) {
+    return this;
+  }
+  toString() {
+    return `Either.left(${this.value})`;
+  }
+}
+
+```
+
+使用 `Either` 类：
+
+```js
+import * as R from "ramda";
+import { Either, Right } from "./either";
+
+interface IAddress {
+  country: string;
+  city: string;
+}
+
+interface IStudent {
+  ssn: string;
+  name: string;
+  address: IAddress;
+}
+
+const DB = (property: string) => {
+  return [
+    {
+      name: "zhangsan",
+      ssn: "4444-444-44",
+      address: {
+        country: "China",
+        city: "nanjing"
+      }
+    },
+    {
+      name: "lisi",
+      ssn: "5555-555-55",
+      address: {
+        country: "Japan",
+        city: "dongjing"
+      }
+    },
+    {
+      name: "lucy",
+      ssn: "7788-999-000"
+    }
+  ];
+};
+
+const find = (db: IStudent[], id: string) => {
+  return R.find(R.propEq("ssn", id))(db);
+};
+
+const salfFindObject = R.curry(function(db, id) {
+  return Either.fromNullable(find(db, id));
+});
+
+const findStudent = salfFindObject(DB("student"));
+
+const ID = "4444-444-44";
+
+const student: Right<IStudent> = findStudent(ID).orElse(() => {
+  console.error(`Student not found with id ${ID}`);
+});
+
+// zhangsan
+console.log(student.map(R.prop("name")).value);
+```
+
+当容器进入 `Left` 后，`getOrElse` 可以设置默认值，`orElse` 可以传递一个执行函数。
 
 #### 使用 `IO Monad` 与外部资源交互
 
+`IO Monad` 包装的是 `effect` 函数，而不是一个值。记住，一个函数可以看作一个等待计算的惰性的值。有了这个 `Monad` ，可以将任何 `dom` 操作都链接成一个伪引用透明的操作，并能确保所有引起副作用的函数的调用顺序不会跑偏。
+
+`io.ts`
+
+```js
+import * as _ from "lodash";
+
+export class IO {
+  constructor(private effect: Function) {
+    if (!_.isFunction(effect)) {
+      throw "IO Usage: function required";
+    }
+  }
+  static of(a) {
+    return new IO(() => a);
+  }
+  static from(fn) {
+    return new IO(fn);
+  }
+  map(fn) {
+    return new IO(() => fn(this.effect()));
+  }
+  chain(fn) {
+    return fn(this.effect());
+  }
+  run() {
+    return this.effect();
+  }
+}
+
+```
+
+`demo08.ts`
+
+```js
+import * as R from "ramda";
+import { IO } from "./io";
+
+const read = (document: HTMLDocument, id: string) => () =>
+  document.querySelector(`\#${id}`).innerHTML;
+
+const write = (document: HTMLDocument, id: string) => {
+  return (val: any) => {
+    document.querySelector(`\#${id}`).innerHTML = val;
+  };
+};
+
+const readDom = R.curry(read)(document);
+const writeDom = R.curry(write)(document);
+
+const changeToLocaleUpperCase = IO.from(readDom("student-name"))
+  .map(R.toUpper)
+  .map(writeDom("student-name"));
+
+changeToLocaleUpperCase.run();
+```
+
+`demo08.html`:
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+    <title>Document</title>
+  </head>
+  <body>
+    <div id="student-name">zhangsan</div>
+  </body>
+  <script src="./demo08-b.js"></script>
+</html>
+```
+
 ### `Monadic` 链式调用及组合
+
+> 链式调用
+
+```js
+import * as R from "ramda";
+import { Either } from "./either";
+
+interface IAddress {
+  country: string;
+  city: string;
+}
+
+interface IStudent {
+  ssn: string;
+  name: string;
+  address: IAddress;
+}
+
+const DB = (property: string) => {
+  return [
+    {
+      name: "zhangsan",
+      ssn: "4444-444-44",
+      address: {
+        country: "China",
+        city: "nanjing"
+      }
+    },
+    {
+      name: "lisi",
+      ssn: "5555-555-55",
+      address: {
+        country: "Japan",
+        city: "dongjing"
+      }
+    },
+    {
+      name: "lucy",
+      ssn: "7788-999-000"
+    }
+  ];
+};
+
+const find = (db: IStudent[], id: string) => {
+  return R.find(R.propEq("ssn", id))(db);
+};
+
+const csv = arr => arr.join(",");
+
+const validLength = (len: number, str: string) => str.length === len;
+
+const checkLengthSsn = (ssn: string) => {
+  return Either.of(ssn)
+    .filter(R.partial(validLength, [11]))
+    .getOrElseThrow(`INPUT: ${ssn} is not a valid SSN number`);
+};
+
+const safeFindObject = R.curry(function(db, id) {
+  return Either.fromNullable(find(db, id)).getOrElseThrow(
+    `Object not found with id ${id}`
+  );
+});
+
+const findStudent = safeFindObject(DB("student"));
+
+const showStudent = (ssn: string) =>
+  Either.fromNullable(ssn)
+    .map(checkLengthSsn)
+    .map(findStudent)
+    .map(R.props(["ssn", "name"]))
+    .chain(csv);
+
+console.log(showStudent("4444-444-44"));
+```
+
+> 组合
+
+```js
+// 组合调用
+const monadSsn = ssn => Either.fromNullable(ssn);
+
+const map = R.curry((f, container) => container.map(f));
+
+const chain = R.curry((f, container) => container.chain(f));
+
+const showStudent2 = R.pipe(
+  monadSsn,
+  map(checkLengthSsn),
+  map(findStudent),
+  map(R.props(["ssn", "name"])),
+  chain(csv)
+);
+
+console.log(showStudent2("4444-444-44"));
+```
