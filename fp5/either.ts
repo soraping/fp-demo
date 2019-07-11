@@ -19,6 +19,12 @@ export class Either<T> {
   static of(a) {
     return this.right(a);
   }
+  get isRight() {
+    return false;
+  }
+  get isLeft() {
+    return false;
+  }
 }
 
 export class Right<T> extends Either<T> {
@@ -57,6 +63,9 @@ export class Right<T> extends Either<T> {
   }
   toString() {
     return `Either.Right(${this.value})`;
+  }
+  get isRight() {
+    return true;
   }
 }
 
@@ -105,6 +114,9 @@ class Left extends Either<any> {
    */
   filter(f) {
     return this;
+  }
+  get isLeft() {
+    return true;
   }
   toString() {
     return `Either.left(${this.value})`;

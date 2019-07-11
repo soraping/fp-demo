@@ -190,7 +190,7 @@ console.log(countWords(str));
 import * as R from "ramda";
 import * as _ from "lodash";
 
-const trim = (str: string) => str.replace(/^\s*$/g, "");
+const trim = (str: string) => str.replace(/\s/g, "");
 
 const normalize = (str: string) => str.replace(/\-/g, "");
 

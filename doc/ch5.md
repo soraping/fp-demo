@@ -882,7 +882,7 @@ const DB = (property: string) => {
   return [
     {
       name: "zhangsan",
-      ssn: "4444-444-44",
+      ssn: "444444444",
       address: {
         country: "China",
         city: "nanjing"
@@ -909,28 +909,39 @@ const find = (db: IStudent[], id: string) => {
 
 const csv = arr => arr.join(",");
 
+const trim = (str: string) => str.replace(/\s/g, "");
+
+const normalize = (str: string) => str.replace(/\-/g, "");
+
+const cleanInput = R.compose(
+  normalize,
+  trim
+);
+
 const validLength = (len: number, str: string) => str.length === len;
 
 const checkLengthSsn = (ssn: string) => {
-  return Either.of(ssn)
-    .filter(R.partial(validLength, [11]))
-    .getOrElseThrow(`INPUT: ${ssn} is not a valid SSN number`);
+  return Either.of(ssn).filter(R.partial(validLength, [9]));
 };
 
 const safeFindObject = R.curry(function(db, id) {
-  return Either.fromNullable(find(db, id)).getOrElseThrow(
-    `Object not found with id ${id}`
-  );
+  return Either.fromNullable(find(db, id));
 });
 
 const findStudent = safeFindObject(DB("student"));
 
+/**
+ * chain 和 map 交叉使用，来确保 monad 只有一层，用chain来防止嵌套太深
+ * @param ssn
+ */
 const showStudent = (ssn: string) =>
   Either.fromNullable(ssn)
-    .map(checkLengthSsn)
-    .map(findStudent)
+    .map(cleanInput)
+    .chain(checkLengthSsn)
+    .chain(findStudent)
     .map(R.props(["ssn", "name"]))
-    .chain(csv);
+    .map(csv)
+    .orElse(console.error);
 
 console.log(showStudent("4444-444-44"));
 ```
@@ -947,10 +958,11 @@ const chain = R.curry((f, container) => container.chain(f));
 
 const showStudent2 = R.pipe(
   monadSsn,
-  map(checkLengthSsn),
-  map(findStudent),
+  map(cleanInput),
+  chain(checkLengthSsn),
+  chain(findStudent),
   map(R.props(["ssn", "name"])),
-  chain(csv)
+  map(csv)
 );
 
 console.log(showStudent2("4444-444-44"));
