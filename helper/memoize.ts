@@ -2,11 +2,20 @@ import * as R from "ramda";
 
 declare global {
   interface Function {
-    memoize: () => void;
+    memoize: (...args) => any;
   }
 }
 
-Function.memoize = function() {};
+Function.prototype.memoize = function() {
+  let fn = this;
+  let _cache = {};
+  return function() {
+    // 缓存键值
+    let key = Array.prototype.join.call(fn, arguments);
+    _cache[key] = _cache[key] || fn.apply(this, arguments);
+    return _cache[key];
+  };
+};
 
 export const memoize = (fn: Function) => {
   let _cache = {};
@@ -28,7 +37,9 @@ const add = (a, b) => {
   return a + b;
 };
 
-const addMemoize = memoize(add);
+const addMemoize = add.memoize();
+
+// const addMemoize = memoize(add);
 
 addMemoize(1, 2);
 addMemoize(1, 2);
