@@ -4,7 +4,7 @@
   },
   "dependencies": {
     "@types/node": "^11.9.4",
-    "lodash": "^4.17.11",
+    "lodash": "^4.17.19",
     "ramda": "^0.26.1",
     "ramda-fantasy": "^0.8.0",
     "rxjs": "^6.4.0",
